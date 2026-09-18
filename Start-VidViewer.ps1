@@ -16,6 +16,10 @@
       from phones/laptops on the same network.
     - Prints the URLs to open from other devices.
 
+    This runs VidViewer in your current terminal (Ctrl+C stops it). To have
+    it start automatically in the background and survive reboots, use
+    Install-VidViewerService.ps1 instead.
+
 .PARAMETER Port
     Port to listen on. Defaults to 3000.
 
@@ -64,124 +68,21 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-function Write-Step {
-    param([string]$Message)
-    Write-Host "==> $Message" -ForegroundColor Cyan
-}
-
-function Write-Warn {
-    param([string]$Message)
-    Write-Host $Message -ForegroundColor Yellow
-}
-
 # Always run from the folder this script lives in (the project root).
 Set-Location -Path $PSScriptRoot
+. (Join-Path $PSScriptRoot 'scripts\Common.ps1')
 
-# --- 1. Node.js version check -------------------------------------------
-
-$nodeCmd = Get-Command node -ErrorAction SilentlyContinue
-if (-not $nodeCmd) {
-    Write-Host "Node.js was not found on PATH." -ForegroundColor Red
-    Write-Host "Install Node.js 22.5 or newer from https://nodejs.org and re-run this script." -ForegroundColor Red
-    exit 1
-}
-
-$nodeVersionRaw = (node --version).Trim().TrimStart('v')
-try {
-    $nodeVersion = [version]($nodeVersionRaw -replace '-.*$', '')
-} catch {
-    $nodeVersion = $null
-}
-$minVersion = [version]'22.5.0'
-
-if (-not $nodeVersion -or $nodeVersion -lt $minVersion) {
-    Write-Host "Found Node.js $nodeVersionRaw, but VidViewer needs 22.5.0 or newer" -ForegroundColor Red
-    Write-Host "(it uses Node's built-in SQLite module). Please upgrade Node.js from https://nodejs.org." -ForegroundColor Red
-    exit 1
-}
-Write-Step "Node.js $nodeVersionRaw OK"
-
-# --- 2. Install dependencies ---------------------------------------------
-
-if (-not (Test-Path "node_modules")) {
-    Write-Step "Installing dependencies (npm install)..."
-    npm install
-    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-}
-
-# --- 3. Build ---------------------------------------------------------
-
-if (-not $SkipBuild -or -not (Test-Path ".next")) {
-    Write-Step "Building the app (npm run build)..."
-    npm run build
-    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-}
-
-# --- 4. Environment for this run -----------------------------------------
+Test-NodeVersionOrExit
+Install-NpmDependencies
+Build-VidViewerApp -SkipIfExists:$SkipBuild
 
 $env:PORT = "$Port"
-
-if ($MdnsName -notmatch '^[a-zA-Z0-9-]+$') {
-    Write-Host "-MdnsName can only contain letters, numbers, and hyphens (got '$MdnsName')." -ForegroundColor Red
-    exit 1
-}
-if ($NoMdns) {
-    $env:MDNS_DISABLED = '1'
-} else {
-    $env:MDNS_NAME = $MdnsName
-}
-
-if ($MediaRoot) {
-    $resolved = Resolve-Path -Path $MediaRoot -ErrorAction SilentlyContinue
-    if (-not $resolved) {
-        Write-Host "Folder not found: $MediaRoot" -ForegroundColor Red
-        exit 1
-    }
-    $env:MEDIA_ROOT = $resolved.Path
-    Write-Step "MEDIA_ROOT set to $($resolved.Path) (only used if no sources exist yet)"
-}
-
-# --- 5. Windows Firewall ---------------------------------------------
+Set-MdnsEnv -MdnsName $MdnsName -NoMdns:$NoMdns
+Set-MediaRootEnv -MediaRoot $MediaRoot
 
 if (-not $SkipFirewall) {
-    $isAdmin = ([Security.Principal.WindowsPrincipal] `
-        [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
-            [Security.Principal.WindowsBuiltInRole]::Administrator)
-
-    $rulesNeeded = @(
-        @{ Name = "VidViewer (TCP $Port)"; Protocol = 'TCP'; LocalPort = $Port }
-    )
-    if (-not $NoMdns) {
-        $rulesNeeded += @{ Name = 'VidViewer (mDNS)'; Protocol = 'UDP'; LocalPort = 5353 }
-    }
-
-    $anyMissing = $false
-    foreach ($rule in $rulesNeeded) {
-        if (-not (Get-NetFirewallRule -DisplayName $rule.Name -ErrorAction SilentlyContinue)) {
-            $anyMissing = $true
-        }
-    }
-
-    if ($anyMissing) {
-        if ($isAdmin) {
-            foreach ($rule in $rulesNeeded) {
-                if (-not (Get-NetFirewallRule -DisplayName $rule.Name -ErrorAction SilentlyContinue)) {
-                    Write-Step "Adding a Windows Firewall rule: $($rule.Name)..."
-                    New-NetFirewallRule -DisplayName $rule.Name -Direction Inbound `
-                        -Action Allow -Protocol $rule.Protocol -LocalPort $rule.LocalPort `
-                        -Profile Private, Domain | Out-Null
-                }
-            }
-        } else {
-            Write-Warn "Not running as Administrator, so this script can't add firewall rules automatically."
-            Write-Warn "Windows will likely prompt to 'Allow access' the first time Node listens on the network - accept it,"
-            Write-Warn "or re-run this script as Administrator to have it set the rules up for you (needed for both the app"
-            Write-Warn "port and, if you want the '.local' name to work, mDNS on UDP 5353)."
-        }
-    }
+    Set-VidViewerFirewallRules -Port $Port -NoMdns:$NoMdns
 }
-
-# --- 6. Open a browser once the server responds --------------------------
 
 if (-not $NoBrowser) {
     Start-Job -ScriptBlock {
@@ -197,8 +98,6 @@ if (-not $NoBrowser) {
         }
     } -ArgumentList $Port | Out-Null
 }
-
-# --- 7. Run it -----------------------------------------------------
 
 Write-Step "Starting VidViewer on port $Port ..."
 Write-Host ""

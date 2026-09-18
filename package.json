@@ -16,6 +16,7 @@
     "basic-ftp": "^6.2.1",
     "multicast-dns": "^7.2.5",
     "next": "^16.3.5",
+    "node-windows": "^1.0.0-beta.8",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "video.js": "^8.24.1"

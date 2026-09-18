@@ -81,6 +81,46 @@ and prints the network URL. Useful options:
 Run `Get-Help .\Start-VidViewer.ps1 -Full` for all of them. Press
 `Ctrl+C` in that terminal to stop the server.
 
+#### Running it as a background service (starts on boot)
+
+`Start-VidViewer.ps1` only runs while its terminal window is open. To
+have VidViewer start automatically in the background whenever Windows
+boots — no terminal window, no logging back in required — install it
+as a real Windows Service instead:
+
+```powershell
+.\Install-VidViewerService.ps1
+```
+
+This prompts for Administrator rights (via UAC) if needed, then
+builds the app, opens the same firewall rules, registers a service
+named **VidViewer**, and starts it. It takes the same `-Port`,
+`-MediaRoot`, and `-MdnsName`/`-NoMdns` options as `Start-VidViewer.ps1`;
+whatever you pass gets baked into the service (a Windows Service has
+no terminal environment of its own, so this is the only time those
+settings can be set — reinstall to change them).
+
+Once installed, manage it like any other service:
+
+```powershell
+Get-Service VidViewer
+Restart-Service VidViewer
+Stop-Service VidViewer
+```
+
+or via `services.msc`. If it won't start, check the logs it writes to
+the `daemon\` folder this creates. Windows restarts it automatically
+if it crashes, and it comes back up on its own after every reboot —
+nothing more to run.
+
+To remove it:
+
+```powershell
+.\Uninstall-VidViewerService.ps1
+```
+
+(Your sources and watch history in `data\vidviewer.db` are untouched.)
+
 ### macOS / Linux
 
 ```bash
@@ -225,6 +265,9 @@ end) start over from the beginning next time.
 - `scripts/run.js` — runs the mDNS responder (`scripts/mdns.js`)
   alongside the Next.js server under one `npm run dev`/`npm start`, so
   Ctrl+C stops both.
+- `scripts/service/` — installs/uninstalls the Windows Service (via
+  `node-windows`), used by `Install-VidViewerService.ps1` /
+  `Uninstall-VidViewerService.ps1`.
 
 Both `next dev` and `next build` run on webpack (`--webpack`) rather
 than Turbopack, since Turbopack's build-time module tracing currently
