@@ -281,6 +281,30 @@ main { padding: 1rem 1.5rem 3rem; }
   font-size: 0.9rem;
 }
 
+.convert-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem 2rem;
+  max-width: 22rem;
+  text-align: center;
+  z-index: 3;
+}
+
+.convert-overlay p { margin: 0 0 0.75rem; }
+
+.convert-progress-track { width: 100%; }
+
+.convert-percent {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-bottom: 0 !important;
+}
+
 .close-btn {
   position: absolute;
   top: 1rem;

@@ -130,6 +130,12 @@ the `daemon\` folder this creates. Windows restarts it automatically
 if it crashes, and it comes back up on its own after every reboot —
 nothing more to run.
 
+If a device on your network can't reach VidViewer (e.g. "works on
+this laptop, not on my phone"), run `.\Show-VidViewerStatus.ps1` — a
+read-only diagnostic that checks the LAN IP(s), whether the port/mDNS
+firewall rules exist, whether the service is running, and whether the
+current network is categorized Public (the most common cause).
+
 To remove it:
 
 ```powershell
@@ -240,13 +246,31 @@ across all sources with a progress bar; clicking one resumes right
 where you left off. Videos you've finished (or are within ~3% of the
 end) start over from the beginning next time.
 
+### Converting an unsupported video
+
+Not every device can play every format — a `.mkv` that plays fine on
+your laptop or phone can fail with "No compatible source was found"
+on something like a Fire TV Stick's browser, which supports a much
+narrower set of containers/codecs. When that happens on a **local**
+source, the player offers a **Convert to MP4** button right there;
+click it and VidViewer re-encodes the file to H.264/AAC MP4 in the
+background (via a bundled ffmpeg), shows progress, and switches the
+player over to the new file once it's done. The original file is left
+alone — the converted copy is saved alongside it with the same name
+and a `.mp4` extension, so it also shows up as a separate file in the
+folder from then on. This isn't available for FTP or Direct-URL
+sources, since there's nowhere sensible to write the converted file
+back to.
+
 ## Notes
 
 - Only files under a source's configured root can be accessed (path
   traversal is blocked), so it's safe to point a local source at a
   specific media folder rather than your whole home directory.
 - Supported video formats: mp4, webm, ogg/ogv, mov, m4v, mkv (actual
-  playback support depends on your browser's codec support).
+  playback support depends on your browser's codec support — see
+  "Converting an unsupported video" above for local files that won't
+  play on a particular device).
 - Supported image formats: jpg, jpeg, png, gif, webp, bmp, svg.
 - Source settings and watch history are stored in a SQLite file at
   `data/vidviewer.db` (override the location with `DB_PATH`). FTP
@@ -278,7 +302,8 @@ end) start over from the beginning next time.
   video.js-based player, etc.).
 - `lib/` — framework-agnostic server logic: SQLite access (`db.js`),
   local filesystem browsing/streaming (`local.js`), FTP
-  browsing/streaming (`ftp.js`), direct-URL streaming (`urlSource.js`).
+  browsing/streaming (`ftp.js`), direct-URL streaming (`urlSource.js`),
+  MKV/etc-to-MP4 conversion via a bundled ffmpeg (`convert.js`).
 - `scripts/run.js` — runs the mDNS responder (`scripts/mdns.js`)
   alongside the Next.js server under one `npm run dev`/`npm start`, so
   Ctrl+C stops both.

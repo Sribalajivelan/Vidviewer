@@ -210,6 +210,24 @@ export default function Page() {
     openVideo({ name: row.name, path: row.path, mime: row.mime });
   }
 
+  // After an in-app MKV/etc-to-MP4 conversion finishes, switch the open
+  // player over to the new file (keeping the current resume position) and
+  // refresh the folder grid so the new .mp4 shows up there too.
+  function handleConverted(newPath) {
+    const newName = newPath.split('/').pop();
+    setViewerState((prev) => {
+      if (!prev || prev.type !== 'video') return prev;
+      return { ...prev, file: { ...prev.file, path: newPath, name: newName, mime: 'video/mp4' } };
+    });
+    if (activeVideoRef.current) {
+      activeVideoRef.current.path = newPath;
+      activeVideoRef.current.name = newName;
+    }
+    loadDir(currentSourceId, currentDir);
+  }
+
+  const currentSource = sources.find((s) => s.id === currentSourceId);
+
   return (
     <>
       <header className="topbar">
@@ -255,11 +273,13 @@ export default function Page() {
       <Viewer
         viewerState={viewerState}
         sourceId={currentSourceId}
+        sourceType={currentSource?.type}
         onClose={closeViewer}
         onStepImage={stepImage}
         onVideoTimeUpdate={handleVideoTimeUpdate}
         onVideoPause={handleVideoPause}
         onVideoEnded={handleVideoEnded}
+        onConverted={handleConverted}
       />
 
       <AddSourceModal open={modalOpen} onClose={() => setModalOpen(false)} onCreated={handleSourceCreated} />

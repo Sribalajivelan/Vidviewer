@@ -42,11 +42,11 @@ function sizeToViewport(player) {
   player.height(Math.round(vh * scale));
 }
 
-export default function VideoPlayer({ src, type, initialTime, onTimeUpdate, onPause, onEnded, onResumed }) {
+export default function VideoPlayer({ src, type, initialTime, onTimeUpdate, onPause, onEnded, onResumed, onUnsupported }) {
   const containerRef = useRef(null);
   const playerRef = useRef(null);
   const callbacksRef = useRef({});
-  callbacksRef.current = { onTimeUpdate, onPause, onEnded, onResumed };
+  callbacksRef.current = { onTimeUpdate, onPause, onEnded, onResumed, onUnsupported };
 
   useEffect(() => {
     const videoElement = document.createElement('video-js');
@@ -80,6 +80,11 @@ export default function VideoPlayer({ src, type, initialTime, onTimeUpdate, onPa
     player.on('timeupdate', () => callbacksRef.current.onTimeUpdate?.(player.currentTime(), player.duration()));
     player.on('pause', () => callbacksRef.current.onPause?.(player.currentTime(), player.duration()));
     player.on('ended', () => callbacksRef.current.onEnded?.(player.duration(), player.duration()));
+    player.on('error', () => {
+      // MEDIA_ERR_SRC_NOT_SUPPORTED: the browser itself can't decode this
+      // file (wrong container/codec for this device), not a network hiccup.
+      if (player.error()?.code === 4) callbacksRef.current.onUnsupported?.();
+    });
 
     return () => {
       window.removeEventListener('resize', handleResize);
