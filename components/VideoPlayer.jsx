@@ -4,6 +4,28 @@ import { useEffect, useRef } from 'react';
 import videojs from 'video.js';
 import 'video.js/dist/video-js.css';
 
+// Resets playback to the very beginning; video.js has no built-in control
+// for this (only skip-forward/back and the ended-state replay overlay), so
+// it's registered once as a custom control-bar button.
+if (!videojs.getComponent('RestartButton')) {
+  const ButtonBase = videojs.getComponent('Button');
+
+  class RestartButton extends ButtonBase {
+    constructor(player, options) {
+      super(player, options);
+      this.controlText('Restart from beginning');
+      this.addClass('vjs-icon-replay');
+      this.addClass('vjs-restart-control');
+    }
+
+    handleClick() {
+      this.player().currentTime(0);
+    }
+  }
+
+  videojs.registerComponent('RestartButton', RestartButton);
+}
+
 // Sizes the player to fit the viewport while preserving the video's own
 // aspect ratio (video.js's default, non-fluid skin needs an explicit size
 // because its tech element is absolutely positioned inside it).
@@ -36,8 +58,13 @@ export default function VideoPlayer({ src, type, initialTime, onTimeUpdate, onPa
       autoplay: true,
       preload: 'auto',
       sources: [{ src, type }],
+      controlBar: {
+        skipButtons: { forward: 10, backward: 10 },
+      },
     });
     playerRef.current = player;
+
+    player.getChild('controlBar').addChild('RestartButton', {}, 0);
 
     player.on('loadedmetadata', () => {
       sizeToViewport(player);
