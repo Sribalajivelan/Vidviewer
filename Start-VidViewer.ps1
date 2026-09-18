@@ -7,10 +7,14 @@
       SQLite module VidViewer uses).
     - Installs dependencies on first run.
     - Builds the app if it hasn't been built yet.
-    - Opens a Windows Firewall rule for the chosen port so other devices
-      on your Wi-Fi/LAN can reach it (skipped if not run as Administrator;
-      you'll get a firewall prompt from Windows instead the first time).
-    - Starts the server and prints the URL to open from other devices.
+    - Opens Windows Firewall rules for the chosen port and for mDNS so
+      other devices on your Wi-Fi/LAN can reach it (skipped if not run as
+      Administrator; you'll get firewall prompts from Windows instead the
+      first time).
+    - Starts the server, which also advertises itself over mDNS as
+      "<MdnsName>.local" so you can use that name instead of an IP address
+      from phones/laptops on the same network.
+    - Prints the URLs to open from other devices.
 
 .PARAMETER Port
     Port to listen on. Defaults to 3000.
@@ -20,12 +24,22 @@
     very first time you run this (before any sources exist) - after that,
     add/change folders from within the app itself.
 
+.PARAMETER MdnsName
+    The name VidViewer advertises itself as on the local network, e.g.
+    "vidviewer" makes it reachable at http://vidviewer.local:<Port>.
+    Defaults to "vidviewer". Needs another device that supports mDNS
+    (Bonjour) to resolve it - that's the default on macOS, iOS, Android,
+    and modern Windows/Linux out of the box.
+
+.PARAMETER NoMdns
+    Don't advertise a ".local" name; only the plain IP address URLs work.
+
 .PARAMETER SkipBuild
     Skip the build step even if a previous build exists but might be stale.
     (A build always runs if no build output is found yet.)
 
 .PARAMETER SkipFirewall
-    Don't try to add a Windows Firewall rule.
+    Don't try to add Windows Firewall rules.
 
 .PARAMETER NoBrowser
     Don't automatically open your browser once the server is up.
@@ -34,13 +48,15 @@
     .\Start-VidViewer.ps1
 
 .EXAMPLE
-    .\Start-VidViewer.ps1 -MediaRoot "D:\Videos" -Port 8080
+    .\Start-VidViewer.ps1 -MediaRoot "D:\Videos" -Port 8080 -MdnsName movienight
 #>
 
 [CmdletBinding()]
 param(
     [int]$Port = 3000,
     [string]$MediaRoot,
+    [string]$MdnsName = 'vidviewer',
+    [switch]$NoMdns,
     [switch]$SkipBuild,
     [switch]$SkipFirewall,
     [switch]$NoBrowser
@@ -105,6 +121,16 @@ if (-not $SkipBuild -or -not (Test-Path ".next")) {
 
 $env:PORT = "$Port"
 
+if ($MdnsName -notmatch '^[a-zA-Z0-9-]+$') {
+    Write-Host "-MdnsName can only contain letters, numbers, and hyphens (got '$MdnsName')." -ForegroundColor Red
+    exit 1
+}
+if ($NoMdns) {
+    $env:MDNS_DISABLED = '1'
+} else {
+    $env:MDNS_NAME = $MdnsName
+}
+
 if ($MediaRoot) {
     $resolved = Resolve-Path -Path $MediaRoot -ErrorAction SilentlyContinue
     if (-not $resolved) {
@@ -121,19 +147,36 @@ if (-not $SkipFirewall) {
     $isAdmin = ([Security.Principal.WindowsPrincipal] `
         [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
             [Security.Principal.WindowsBuiltInRole]::Administrator)
-    $ruleName = "VidViewer (TCP $Port)"
 
-    $existingRule = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
-    if (-not $existingRule) {
+    $rulesNeeded = @(
+        @{ Name = "VidViewer (TCP $Port)"; Protocol = 'TCP'; LocalPort = $Port }
+    )
+    if (-not $NoMdns) {
+        $rulesNeeded += @{ Name = 'VidViewer (mDNS)'; Protocol = 'UDP'; LocalPort = 5353 }
+    }
+
+    $anyMissing = $false
+    foreach ($rule in $rulesNeeded) {
+        if (-not (Get-NetFirewallRule -DisplayName $rule.Name -ErrorAction SilentlyContinue)) {
+            $anyMissing = $true
+        }
+    }
+
+    if ($anyMissing) {
         if ($isAdmin) {
-            Write-Step "Adding a Windows Firewall rule for TCP port $Port..."
-            New-NetFirewallRule -DisplayName $ruleName -Direction Inbound `
-                -Action Allow -Protocol TCP -LocalPort $Port `
-                -Profile Private, Domain | Out-Null
+            foreach ($rule in $rulesNeeded) {
+                if (-not (Get-NetFirewallRule -DisplayName $rule.Name -ErrorAction SilentlyContinue)) {
+                    Write-Step "Adding a Windows Firewall rule: $($rule.Name)..."
+                    New-NetFirewallRule -DisplayName $rule.Name -Direction Inbound `
+                        -Action Allow -Protocol $rule.Protocol -LocalPort $rule.LocalPort `
+                        -Profile Private, Domain | Out-Null
+                }
+            }
         } else {
-            Write-Warn "Not running as Administrator, so this script can't add a firewall rule automatically."
-            Write-Warn "Windows will likely show an 'Allow access' prompt the first time Node listens on the network - accept it,"
-            Write-Warn "or re-run this script as Administrator to have it set up the rule for you."
+            Write-Warn "Not running as Administrator, so this script can't add firewall rules automatically."
+            Write-Warn "Windows will likely prompt to 'Allow access' the first time Node listens on the network - accept it,"
+            Write-Warn "or re-run this script as Administrator to have it set the rules up for you (needed for both the app"
+            Write-Warn "port and, if you want the '.local' name to work, mDNS on UDP 5353)."
         }
     }
 }

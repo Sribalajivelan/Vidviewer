@@ -112,6 +112,7 @@ On start it prints the URLs to open:
 VidViewer starting (start)
   Local:   http://localhost:3000
   Network: http://192.168.1.23:3000
+  Network: http://vidviewer.local:3000  (once other devices pick it up)
 ```
 
 - Open the **Local** URL on the laptop itself.
@@ -119,6 +120,25 @@ VidViewer starting (start)
   (phone, tablet, another computer) to browse and play the same files.
 
 Use `PORT=8080 npm start` to change the port.
+
+### A friendly name instead of an IP address
+
+The server advertises itself over mDNS (Bonjour/zeroconf) as
+`vidviewer.local`, so other devices on the same network can use that
+name instead of an IP address that changes every so often. It works
+out of the box on macOS, iOS, Android, and modern Windows/Linux — no
+router configuration needed. If a name doesn't resolve, that device or
+network just doesn't support mDNS (some corporate/guest Wi-Fi networks
+block the multicast traffic it relies on); fall back to the IP URL.
+
+- Change the name: `MDNS_NAME=movienight npm start` (on Windows:
+  `.\Start-VidViewer.ps1 -MdnsName movienight`), giving you
+  `http://movienight.local:3000`.
+- Turn it off: `MDNS_DISABLED=1 npm start` (Windows: `-NoMdns`).
+- This is a plain `<name>.local` → IP answer, not a "real" domain —
+  don't reuse an actual TLD like `.com` for `MDNS_NAME`; devices would
+  only resolve it your way on this network, and it can conflict with
+  HTTPS-only browser behavior for names that look like real domains.
 
 ## Using it
 
@@ -186,6 +206,11 @@ end) start over from the beginning next time.
   that means anyone on your LAN could point it at an internal address
   reachable from your laptop. Keep that in mind on networks you don't
   fully trust.
+- The mDNS responder listens on UDP port 5353. On macOS/Linux, allow
+  it through your firewall the same way you would any local dev
+  server (usually nothing to do — most desktop firewalls there don't
+  block outbound multicast responses by default); on Windows, the
+  launcher script handles it (see above).
 
 ## Project structure
 
@@ -196,7 +221,10 @@ end) start over from the beginning next time.
   video.js-based player, etc.).
 - `lib/` — framework-agnostic server logic: SQLite access (`db.js`),
   local filesystem browsing/streaming (`local.js`), FTP
-  browsing/streaming (`ftp.js`).
+  browsing/streaming (`ftp.js`), direct-URL streaming (`urlSource.js`).
+- `scripts/run.js` — runs the mDNS responder (`scripts/mdns.js`)
+  alongside the Next.js server under one `npm run dev`/`npm start`, so
+  Ctrl+C stops both.
 
 Both `next dev` and `next build` run on webpack (`--webpack`) rather
 than Turbopack, since Turbopack's build-time module tracing currently

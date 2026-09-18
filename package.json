@@ -4,9 +4,9 @@
   "private": true,
   "description": "Browse folders (local or your phone's FTP) over your local network and play videos / view images in the browser.",
   "scripts": {
-    "dev": "node scripts/print-lan.js dev && next dev --webpack",
+    "dev": "node scripts/run.js dev --webpack",
     "build": "next build --webpack",
-    "start": "node scripts/print-lan.js start && next start"
+    "start": "node scripts/run.js start"
   },
   "license": "MIT",
   "engines": {
@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "basic-ftp": "^6.2.1",
+    "multicast-dns": "^7.2.5",
     "next": "^16.3.5",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
