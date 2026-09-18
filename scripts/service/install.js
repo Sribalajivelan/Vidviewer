@@ -17,6 +17,15 @@ const svc = new Service({
   wait: 2,
   grow: 0.5,
   maxRestarts: 5,
+  // WinSW's default stop is an immediate kill. `stopparentfirst` makes it
+  // send a graceful stop signal first - Node sees this as SIGINT, which
+  // scripts/run.js's shutdown handler uses to wait for any in-flight video
+  // conversion to finish - and only force-kills after `stoptimeout` if the
+  // process still hasn't exited. Kept a bit longer than run.js's own
+  // SHUTDOWN_WAIT_MS (10 min default) so that wait has time to finish and
+  // exit on its own first.
+  stopparentfirst: true,
+  stoptimeout: 660,
 });
 
 svc.on('invalidinstallation', () => {

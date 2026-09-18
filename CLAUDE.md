@@ -123,6 +123,32 @@ extension; a no-op if that file already exists); `GET
   vendor chunk breaks that (the path resolves into `.next/.../vendor-chunks`
   instead of `node_modules`), so they must stay unbundled.
 
+**Graceful shutdown waits for in-flight conversions** (`scripts/run.js`):
+ffmpeg is a grandchild of `run.js` (spawned inside the Next.js child process
+by `lib/convert.js`), invisible to and not killed by `run.js`'s own
+`child.kill()` calls - an abrupt stop can orphan it or break its
+stdout/stderr pipes mid-encode, leaving a truncated `.mp4` next to the
+original (the cleanup-on-failure path in `lib/convert.js` only runs when
+ffmpeg exits on its own with a non-zero code, not when the whole process
+tree is killed out from under it). So on SIGINT/SIGTERM, `run.js` first
+polls its own `GET /api/convert` and waits (bounded by `SHUTDOWN_WAIT_MS`,
+default 10 min) for any `running` job to finish before killing children.
+This only has teeth under the Windows Service because
+`scripts/service/install.js` also sets node-windows/WinSW's
+`stopparentfirst`/`stoptimeout` - WinSW's default stop is an immediate
+kill, which would make the wait pointless; keep `stoptimeout` a bit longer
+than `SHUTDOWN_WAIT_MS` if either changes. Verified directly: a copy of
+`run.js` that self-emits `SIGINT` mid-conversion correctly waits, logs,
+and exits right after the job completes, with a non-truncated output file
+(vs. an external kill, which produces a truncated one). Not independently
+verified: that a real `Restart-Service`/`Stop-Service` actually delivers a
+catchable signal the same way in this environment - external
+`process.kill()`/`Stop-Process`/`taskkill` attempts against this app's
+process on Windows all terminated it unconditionally without ever
+reaching the handler, so this is worth confirming against the live
+service in a low-stakes moment (no conversion actually running) if it's
+ever in doubt.
+
 ## Security notes relevant to changes here
 
 - Never remove or weaken `resolveSafePath()`'s traversal check in

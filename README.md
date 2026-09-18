@@ -130,6 +130,12 @@ the `daemon\` folder this creates. Windows restarts it automatically
 if it crashes, and it comes back up on its own after every reboot —
 nothing more to run.
 
+`Restart-Service`/`Stop-Service` wait for any in-app video conversion
+that's currently running to finish before actually stopping (up to 10
+minutes by default, configurable via `SHUTDOWN_WAIT_MS` if set before
+installing) — stopping mid-conversion would otherwise leave a
+truncated `.mp4` behind.
+
 If a device on your network can't reach VidViewer (e.g. "works on
 this laptop, not on my phone"), run `.\Show-VidViewerStatus.ps1` — a
 read-only diagnostic that checks the LAN IP(s), whether the port/mDNS

@@ -8,7 +8,7 @@ const SERVICE_NAME = 'VidViewer';
 // current shell's environment, so anything the app needs (PORT, MEDIA_ROOT,
 // MDNS_NAME/MDNS_DISABLED) has to be captured here at install time.
 function buildEnv() {
-  const passthrough = ['PORT', 'MEDIA_ROOT', 'MDNS_NAME', 'MDNS_DISABLED', 'DB_PATH'];
+  const passthrough = ['PORT', 'MEDIA_ROOT', 'MDNS_NAME', 'MDNS_DISABLED', 'DB_PATH', 'SHUTDOWN_WAIT_MS'];
   return passthrough
     .filter((name) => process.env[name] != null && process.env[name] !== '')
     .map((name) => ({ name, value: process.env[name] }));
