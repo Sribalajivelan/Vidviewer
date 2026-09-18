@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VidViewer</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>VidViewer</h1>
+    <nav id="breadcrumb" class="breadcrumb"></nav>
+  </header>
+
+  <main>
+    <section id="browser" class="browser">
+      <div id="entries" class="entries"></div>
+    </section>
+
+    <section id="viewer" class="viewer hidden">
+      <button id="closeViewer" class="close-btn" title="Back to browser">&times;</button>
+      <video id="videoPlayer" class="hidden" controls autoplay></video>
+      <div id="imageWrap" class="image-wrap hidden">
+        <button id="prevImage" class="nav-btn nav-prev" title="Previous">&#10094;</button>
+        <img id="imagePlayer" alt="">
+        <button id="nextImage" class="nav-btn nav-next" title="Next">&#10095;</button>
+      </div>
+      <div id="viewerTitle" class="viewer-title"></div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
