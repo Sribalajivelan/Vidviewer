@@ -32,6 +32,18 @@ html, body {
   color: var(--accent);
 }
 
+.main-tabs {
+  margin-bottom: 0;
+}
+
+.source-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 1.5rem 0;
+}
+
 .source-tabs {
   display: flex;
   gap: 0.5rem;
@@ -202,6 +214,82 @@ main { padding: 1rem 1.5rem 3rem; }
   font-size: 0.75rem;
   color: var(--muted);
   margin-bottom: 0.3rem;
+}
+
+.watched-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.converting-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.converting-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+}
+
+.converting-item .icon { font-size: 1.75rem; }
+
+.converting-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.converting-status {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.converting-badge { color: #ff6b6b; }
+
+.converting-error { border-color: #5a2a2a; }
+
+/* Truncates with an ellipsis; on hover, if the text actually overflows,
+   slides between two absolutely-stacked copies of it (see MarqueeText.jsx)
+   instead of just cutting it off. */
+.marquee {
+  position: relative;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.marquee-static {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.marquee-scroll {
+  position: absolute;
+  top: 0;
+  left: 0;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.marquee-overflowing:hover .marquee-static { opacity: 0; }
+
+.marquee-overflowing:hover .marquee-scroll {
+  opacity: 1;
+  animation: marquee-slide 4s ease-in-out infinite alternate;
+}
+
+@keyframes marquee-slide {
+  0%, 10% { transform: translateX(0); }
+  90%, 100% { transform: translateX(var(--marquee-distance)); }
 }
 
 .resume-toast {

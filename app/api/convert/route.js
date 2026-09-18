@@ -1,9 +1,13 @@
 import { sources } from '../../../lib/db';
-import { startConversion } from '../../../lib/convert';
+import { startConversion, listJobs } from '../../../lib/convert';
 import { classify } from '../../../lib/mediaTypes';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+export async function GET() {
+  return Response.json(listJobs());
+}
 
 export async function POST(request) {
   const body = await request.json().catch(() => ({}));

@@ -5,13 +5,20 @@ import SourceTabs from '../components/SourceTabs';
 import AddSourceModal from '../components/AddSourceModal';
 import Breadcrumb from '../components/Breadcrumb';
 import MediaGrid from '../components/MediaGrid';
-import RecentStrip from '../components/RecentStrip';
+import WatchedView from '../components/WatchedView';
+import ConvertingView from '../components/ConvertingView';
 import Viewer from '../components/Viewer';
 
 const LAST_SOURCE_KEY = 'vidviewer:lastSource';
 const SAVE_INTERVAL_MS = 5000;
+const TABS = [
+  { id: 'home', label: 'Home' },
+  { id: 'watched', label: 'Watched' },
+  { id: 'converting', label: 'Converting' },
+];
 
 export default function Page() {
+  const [activeTab, setActiveTab] = useState('home');
   const [sources, setSources] = useState([]);
   const [currentSourceId, setCurrentSourceId] = useState(null);
   const [currentDir, setCurrentDir] = useState('');
@@ -210,6 +217,15 @@ export default function Page() {
     openVideo({ name: row.name, path: row.path, mime: row.mime });
   }
 
+  // "Play" on a finished job in the Converting tab - same idea as
+  // openRecent, but the job only knows the sourceId/output path (a
+  // conversion job isn't a playback-history row).
+  function openConverted(job) {
+    setCurrentSourceId(job.sourceId);
+    window.localStorage.setItem(LAST_SOURCE_KEY, job.sourceId);
+    openVideo({ name: job.path.split('/').pop(), path: job.path, mime: 'video/mp4' });
+  }
+
   // After an in-app MKV/etc-to-MP4 conversion finishes, switch the open
   // player over to the new file (keeping the current resume position) and
   // refresh the folder grid so the new .mp4 shows up there too.
@@ -232,42 +248,61 @@ export default function Page() {
     <>
       <header className="topbar">
         <h1>VidViewer</h1>
-        <SourceTabs
-          sources={sources}
-          currentSourceId={currentSourceId}
-          onSelect={selectSource}
-          onRemove={removeSource}
-          onAddClick={() => setModalOpen(true)}
-        />
+        <nav className="tabs-inline main-tabs">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              className={'tab-btn' + (activeTab === tab.id ? ' active' : '')}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
       </header>
 
-      {currentSourceId != null && <Breadcrumb dir={currentDir} onNavigate={openFolder} />}
+      {activeTab === 'home' && (
+        <div className="source-bar">
+          <SourceTabs
+            sources={sources}
+            currentSourceId={currentSourceId}
+            onSelect={selectSource}
+            onRemove={removeSource}
+            onAddClick={() => setModalOpen(true)}
+          />
+        </div>
+      )}
+
+      {activeTab === 'home' && currentSourceId != null && (
+        <Breadcrumb dir={currentDir} onNavigate={openFolder} />
+      )}
 
       <main>
-        {!sources.length && (
+        {activeTab === 'home' && !sources.length && (
           <div className="empty">
             No sources yet. Click &quot;+ Source&quot; to add a folder or connect to your phone over FTP.
           </div>
         )}
 
-        {sources.length > 0 && (
-          <>
-            <RecentStrip rows={recentRows} onOpen={openRecent} />
-            {loadError ? (
-              <div className="empty">{loadError}</div>
-            ) : (
-              <MediaGrid
-                sourceId={currentSourceId}
-                folders={dirData.folders}
-                files={dirData.files}
-                recentByKey={recentByKey}
-                onOpenFolder={openFolder}
-                onOpenVideo={openVideo}
-                onOpenImage={openImage}
-              />
-            )}
-          </>
+        {activeTab === 'home' && sources.length > 0 && (
+          loadError ? (
+            <div className="empty">{loadError}</div>
+          ) : (
+            <MediaGrid
+              sourceId={currentSourceId}
+              folders={dirData.folders}
+              files={dirData.files}
+              recentByKey={recentByKey}
+              onOpenFolder={openFolder}
+              onOpenVideo={openVideo}
+              onOpenImage={openImage}
+            />
+          )
         )}
+
+        {activeTab === 'watched' && <WatchedView rows={recentRows} onOpen={openRecent} />}
+
+        {activeTab === 'converting' && <ConvertingView onPlay={openConverted} />}
       </main>
 
       <Viewer
