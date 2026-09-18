@@ -6,6 +6,9 @@ and view images from any browser on your local network (including your
 laptop itself). It remembers what you've watched and picks up video
 playback where you left off.
 
+Built with **Next.js** (App Router) and **[video.js](https://videojs.com/)**
+for playback.
+
 ## Requirements
 
 Node.js **22.5 or newer** (uses the built-in `node:sqlite` module, no
@@ -15,7 +18,15 @@ native build tools required).
 
 ```bash
 npm install
+npm run build
 npm start
+```
+
+For development (hot reload):
+
+```bash
+npm install
+npm run dev
 ```
 
 On first run it automatically adds a "Local" source pointing at your
@@ -31,7 +42,7 @@ MEDIA_ROOT="/path/to/your/media" npm start
 On start it prints the URLs to open:
 
 ```
-VidViewer running
+VidViewer starting (start)
   Local:   http://localhost:3000
   Network: http://192.168.1.23:3000
 ```
@@ -94,3 +105,18 @@ end) start over from the beginning next time.
 - This app has no authentication — anyone on your local network can
   use it while the server is running. Don't run it on untrusted
   networks (e.g. public Wi-Fi).
+
+## Project structure
+
+- `app/` — Next.js App Router pages and API route handlers
+  (`app/api/*/route.js`) for sources, browsing, media streaming, and
+  playback progress.
+- `components/` — React UI (source tabs, folder/file grid, the
+  video.js-based player, etc.).
+- `lib/` — framework-agnostic server logic: SQLite access (`db.js`),
+  local filesystem browsing/streaming (`local.js`), FTP
+  browsing/streaming (`ftp.js`).
+
+Both `next dev` and `next build` run on webpack (`--webpack`) rather
+than Turbopack, since Turbopack's build-time module tracing currently
+chokes on the `node:sqlite` built-in.

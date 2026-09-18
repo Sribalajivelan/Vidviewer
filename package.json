@@ -1,10 +1,12 @@
 {
   "name": "vidviewer",
   "version": "1.0.0",
-  "description": "Browse a folder on your laptop over your local network and play videos / view images in the browser.",
-  "main": "server.js",
+  "private": true,
+  "description": "Browse folders (local or your phone's FTP) over your local network and play videos / view images in the browser.",
   "scripts": {
-    "start": "node server.js"
+    "dev": "node scripts/print-lan.js dev && next dev --webpack",
+    "build": "next build --webpack",
+    "start": "node scripts/print-lan.js start && next start"
   },
   "license": "MIT",
   "engines": {
@@ -12,6 +14,9 @@
   },
   "dependencies": {
     "basic-ftp": "^6.2.1",
-    "express": "^4.19.2"
+    "next": "^16.3.5",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "video.js": "^8.24.1"
   }
 }
