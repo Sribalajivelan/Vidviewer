@@ -84,6 +84,7 @@ Set-MediaRootEnv -MediaRoot $MediaRoot
 
 if (-not $SkipFirewall) {
     Set-VidViewerFirewallRules -Port $Port -NoMdns:$NoMdns
+    Test-NetworkCategory -Interactive
 }
 
 if (-not $NoBrowser) {

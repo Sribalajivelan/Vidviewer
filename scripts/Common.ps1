@@ -155,3 +155,31 @@ function Set-VidViewerFirewallRules {
         Write-Warn "or re-run as Administrator to have it set the rules up for you."
     }
 }
+
+# The firewall rules above only apply to networks Windows categorizes as
+# "Private" or "Domain" - a network left as "Public" (the default for a new
+# Wi-Fi connection unless you opted in to discovery) silently blocks every
+# other device on it from reaching VidViewer, even with the rules in place.
+# This is the single most common reason "it works on localhost but not from
+# my phone" after everything else looks right.
+function Test-NetworkCategory {
+    param([switch]$Interactive)
+
+    $publicProfiles = Get-NetConnectionProfile -ErrorAction SilentlyContinue |
+        Where-Object { $_.NetworkCategory -eq 'Public' -and $_.IPv4Connectivity -ne 'Disconnected' }
+
+    foreach ($netProfile in $publicProfiles) {
+        Write-Warn "Network '$($netProfile.Name)' is set to 'Public' in Windows - other devices on it won't be able to reach VidViewer, even with the firewall rules above."
+
+        if ($Interactive -and (Test-IsAdministrator)) {
+            $answer = Read-Host "Mark '$($netProfile.Name)' as a Private network so it's reachable? [y/N]"
+            if ($answer -match '^y(es)?$') {
+                Set-NetConnectionProfile -InterfaceIndex $netProfile.InterfaceIndex -NetworkCategory Private
+                Write-Step "Marked '$($netProfile.Name)' as Private."
+                continue
+            }
+        }
+        Write-Warn "Fix: Settings > Network & Internet > Wi-Fi > $($netProfile.Name) > set network profile to Private,"
+        Write-Warn "or run as Administrator: Set-NetConnectionProfile -InterfaceIndex $($netProfile.InterfaceIndex) -NetworkCategory Private"
+    }
+}

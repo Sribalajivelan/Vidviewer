@@ -76,6 +76,7 @@ $env:PORT = "$Port"
 Set-MdnsEnv -MdnsName $MdnsName -NoMdns:$NoMdns
 Set-MediaRootEnv -MediaRoot $MediaRoot
 Set-VidViewerFirewallRules -Port $Port -NoMdns:$NoMdns
+Test-NetworkCategory -Interactive
 
 Write-Step "Registering the Windows Service..."
 node scripts\service\install.js

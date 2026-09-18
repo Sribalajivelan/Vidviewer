@@ -81,6 +81,23 @@ and prints the network URL. Useful options:
 Run `Get-Help .\Start-VidViewer.ps1 -Full` for all of them. Press
 `Ctrl+C` in that terminal to stop the server.
 
+**"It works on the laptop but not from my phone"** is almost always
+one thing: Windows categorizes each network as Private or Public, and
+the firewall rule above only opens the port for Private/Domain
+networks — a network left as Public (common for a new Wi-Fi
+connection) silently blocks every other device on it. If run as
+Administrator, the script now detects this and offers to fix it; you
+can also check/fix it yourself:
+
+```powershell
+Get-NetConnectionProfile                                         # look for NetworkCategory: Public
+Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory Private
+```
+
+If that's not it, double-check your phone is on the *same* Wi-Fi
+network (not mobile data or a separate guest network — guest networks
+often isolate devices from each other on purpose).
+
 #### Running it as a background service (starts on boot)
 
 `Start-VidViewer.ps1` only runs while its terminal window is open. To
