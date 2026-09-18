@@ -36,7 +36,9 @@
     Don't advertise a ".local" name.
 
 .PARAMETER SkipBuild
-    Skip rebuilding if a build already exists.
+    Reuse an existing build without asking. (If no build output exists
+    yet, it always builds regardless of this; otherwise, without this
+    switch, you're asked whether to rebuild before installing the service.)
 
 .EXAMPLE
     .\Install-VidViewerService.ps1
@@ -68,7 +70,7 @@ if (-not (Test-IsAdministrator)) {
 
 Test-NodeVersionOrExit
 Install-NpmDependencies
-Build-VidViewerApp -SkipIfExists:$SkipBuild
+Build-VidViewerApp -SkipBuild:$SkipBuild
 
 $env:PORT = "$Port"
 Set-MdnsEnv -MdnsName $MdnsName -NoMdns:$NoMdns

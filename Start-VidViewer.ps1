@@ -6,7 +6,8 @@
     - Checks that Node.js 22.5+ is installed (required for the built-in
       SQLite module VidViewer uses).
     - Installs dependencies on first run.
-    - Builds the app if it hasn't been built yet.
+    - Builds the app if it hasn't been built yet, otherwise asks whether
+      to rebuild before starting (see -SkipBuild).
     - Opens Windows Firewall rules for the chosen port and for mDNS so
       other devices on your Wi-Fi/LAN can reach it (skipped if not run as
       Administrator; you'll get firewall prompts from Windows instead the
@@ -39,8 +40,9 @@
     Don't advertise a ".local" name; only the plain IP address URLs work.
 
 .PARAMETER SkipBuild
-    Skip the build step even if a previous build exists but might be stale.
-    (A build always runs if no build output is found yet.)
+    Reuse an existing build without asking. (If no build output exists
+    yet, it always builds regardless of this; otherwise, without this
+    switch, you're asked whether to rebuild before starting.)
 
 .PARAMETER SkipFirewall
     Don't try to add Windows Firewall rules.
@@ -74,7 +76,7 @@ Set-Location -Path $PSScriptRoot
 
 Test-NodeVersionOrExit
 Install-NpmDependencies
-Build-VidViewerApp -SkipIfExists:$SkipBuild
+Build-VidViewerApp -SkipBuild:$SkipBuild
 
 $env:PORT = "$Port"
 Set-MdnsEnv -MdnsName $MdnsName -NoMdns:$NoMdns

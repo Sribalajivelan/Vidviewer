@@ -65,13 +65,34 @@ function Install-NpmDependencies {
     }
 }
 
-function Build-VidViewerApp {
-    param([switch]$SkipIfExists)
-
-    if ($SkipIfExists -and (Test-Path ".next")) { return }
+function Invoke-NpmBuild {
     Write-Step "Building the app (npm run build)..."
     npm run build
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
+
+# No existing build: there's nothing to run yet, so just build - no point
+# asking. Existing build + -SkipBuild: reuse it without asking (for
+# automation, or a user who already knows they don't want to rebuild).
+# Existing build otherwise: ask, since rebuilding is slow and most of the
+# time nothing changed since last run.
+function Build-VidViewerApp {
+    param([switch]$SkipBuild)
+
+    if (-not (Test-Path ".next")) {
+        Write-Step "No existing build found."
+        Invoke-NpmBuild
+        return
+    }
+
+    if ($SkipBuild) { return }
+
+    $answer = Read-Host "A previous build exists. Rebuild before starting? [y/N]"
+    if ($answer -match '^y(es)?$') {
+        Invoke-NpmBuild
+    } else {
+        Write-Step "Skipping build, using the existing one."
+    }
 }
 
 function Set-MediaRootEnv {
