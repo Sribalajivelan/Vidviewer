@@ -9,6 +9,41 @@ playback where you left off.
 Built with **Next.js** (App Router) and **[video.js](https://videojs.com/)**
 for playback.
 
+## Screenshots
+
+<table>
+<tr>
+<td align="center"><b>Home</b><br>sources, Continue Watching, folders/files</td>
+<td align="center"><b>Browsing a folder</b><br>real image thumbnails</td>
+<td align="center"><b>Browsing over FTP</b><br>same folder, fetched from a phone</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/home.png" width="240"></td>
+<td><img src="docs/screenshots/folder.png" width="240"></td>
+<td><img src="docs/screenshots/ftp-source.png" width="240"></td>
+</tr>
+<tr>
+<td align="center"><b>Add a source — folder</b></td>
+<td align="center"><b>Add a source — FTP</b></td>
+<td align="center"><b>Resuming a video</b><br>picks up right where you left off</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/add-source-local.png" width="240"></td>
+<td><img src="docs/screenshots/add-source-ftp.png" width="240"></td>
+<td><img src="docs/screenshots/resume-toast.png" width="240"></td>
+</tr>
+</table>
+
+### Demo video
+
+A short walkthrough (real downloaded sample video + images): browsing,
+playing a video, closing and reopening it to show resume-from-last-position,
+then paging through images.
+
+<video src="docs/screenshots/demo.webm" controls width="360"></video>
+
+(If the player above doesn't render, [download the video directly](docs/screenshots/demo.webm).)
+
 ## Requirements
 
 Node.js **22.5 or newer** (uses the built-in `node:sqlite` module, no
