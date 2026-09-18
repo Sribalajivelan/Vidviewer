@@ -51,6 +51,38 @@ native build tools required).
 
 ## Run it
 
+### Windows
+
+Double-click won't work for a `.ps1` file by default, so run it from a
+terminal (PowerShell or Windows Terminal), from the project folder:
+
+```powershell
+.\Start-VidViewer.ps1
+```
+
+If Windows blocks the script from running ("running scripts is
+disabled on this system"), either right-click it in Explorer → **Run
+with PowerShell**, or run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Start-VidViewer.ps1
+```
+
+It installs dependencies and builds the app on first run, opens a
+Windows Firewall rule for the port so other devices on your network
+can reach it (only if run as Administrator — otherwise accept the
+firewall prompt Windows shows you), opens your browser once it's up,
+and prints the network URL. Useful options:
+
+```powershell
+.\Start-VidViewer.ps1 -MediaRoot "D:\Videos" -Port 8080
+```
+
+Run `Get-Help .\Start-VidViewer.ps1 -Full` for all of them. Press
+`Ctrl+C` in that terminal to stop the server.
+
+### macOS / Linux
+
 ```bash
 npm install
 npm run build
