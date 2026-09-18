@@ -1,6 +1,7 @@
 import { sources } from '../../../lib/db';
 import { streamLocalFile } from '../../../lib/local';
 import { streamFtpFile } from '../../../lib/ftp';
+import { streamUrlFile } from '../../../lib/urlSource';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -14,6 +15,9 @@ export async function GET(request) {
 
   if (source.type === 'local') {
     return streamLocalFile(source, filePath, rangeHeader);
+  }
+  if (source.type === 'url') {
+    return streamUrlFile(source, rangeHeader, request.signal);
   }
   return streamFtpFile(source, filePath, rangeHeader, request.signal);
 }

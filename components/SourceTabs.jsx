@@ -7,7 +7,8 @@ export default function SourceTabs({ sources, currentSourceId, onSelect, onRemov
         {sources.map((source) => (
           <div key={source.id} className={'source-tab' + (source.id === currentSourceId ? ' active' : '')}>
             <span onClick={() => onSelect(source.id)}>
-              {source.type === 'ftp' ? '\u{1F4F1}' : '\u{1F4C1}'} {source.name}
+              {source.type === 'ftp' ? '\u{1F4F1}' : source.type === 'url' ? '\u{1F517}' : '\u{1F4C1}'}{' '}
+              {source.name}
             </span>
             <span
               className="remove"

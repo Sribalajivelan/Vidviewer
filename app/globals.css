@@ -358,7 +358,8 @@ main { padding: 1rem 1.5rem 3rem; }
 
 .source-form input[type="text"],
 .source-form input[type="password"],
-.source-form input[type="number"] {
+.source-form input[type="number"],
+.source-form select {
   background: #141414;
   border: 1px solid var(--border);
   color: var(--fg);

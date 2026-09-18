@@ -17,13 +17,13 @@ export async function POST(request) {
   const { sourceId, path: filePath, name, position, duration } = body;
   const source = sources.get(Number(sourceId));
   if (!source) return Response.json({ error: 'Unknown source' }, { status: 404 });
-  if (!filePath || typeof position !== 'number') {
+  if (typeof filePath !== 'string' || typeof position !== 'number') {
     return Response.json({ error: 'path and position are required' }, { status: 400 });
   }
   playback.saveProgress({
     sourceId: source.id,
     filePath,
-    fileName: name || filePath,
+    fileName: name || filePath || source.name,
     position,
     duration: typeof duration === 'number' ? duration : null,
   });

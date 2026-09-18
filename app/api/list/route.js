@@ -1,6 +1,7 @@
 import { sources } from '../../../lib/db';
 import { listLocalDir } from '../../../lib/local';
 import { listFtpDir } from '../../../lib/ftp';
+import { listUrlDir } from '../../../lib/urlSource';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -18,6 +19,11 @@ export async function GET(request) {
         resolve(Response.json({ sourceId: source.id, dir, ...result }));
       });
     });
+  }
+
+  if (source.type === 'url') {
+    const result = await listUrlDir(source);
+    return Response.json({ sourceId: source.id, dir: '', ...result });
   }
 
   try {

@@ -1,6 +1,7 @@
 import path from 'path';
 import { sources } from '../../../lib/db';
-import { testConnection } from '../../../lib/ftp';
+import { testConnection as testFtpConnection } from '../../../lib/ftp';
+import { testConnection as testUrlConnection } from '../../../lib/urlSource';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -35,7 +36,7 @@ export async function POST(request) {
       basePath: body.basePath || '/',
     };
     try {
-      await testConnection(candidate);
+      await testFtpConnection(candidate);
     } catch (err) {
       return Response.json({ error: 'Could not connect: ' + err.message }, { status: 400 });
     }
@@ -43,5 +44,26 @@ export async function POST(request) {
     return Response.json(created, { status: 201 });
   }
 
-  return Response.json({ error: 'type must be "local" or "ftp"' }, { status: 400 });
+  if (body.type === 'url') {
+    const url = (body.url || '').trim();
+    if (!url) return Response.json({ error: 'URL is required' }, { status: 400 });
+    try {
+      new URL(url);
+    } catch {
+      return Response.json({ error: 'That does not look like a valid URL' }, { status: 400 });
+    }
+    if (!/^https?:$/.test(new URL(url).protocol)) {
+      return Response.json({ error: 'Only http:// and https:// URLs are supported' }, { status: 400 });
+    }
+    const mediaType = body.mediaType === 'image' ? 'image' : 'video';
+    try {
+      await testUrlConnection(url);
+    } catch (err) {
+      return Response.json({ error: 'Could not reach that URL: ' + err.message }, { status: 400 });
+    }
+    const created = sources.createUrl({ name, url, mediaType });
+    return Response.json(created, { status: 201 });
+  }
+
+  return Response.json({ error: 'type must be "local", "ftp", or "url"' }, { status: 400 });
 }

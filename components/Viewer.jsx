@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react';
 import VideoPlayer from './VideoPlayer';
 import { mediaUrl, formatTime } from '../lib/mediaUrl';
-import { mimeFor } from '../lib/mediaTypes';
 
 export default function Viewer({ viewerState, sourceId, onClose, onStepImage, onVideoTimeUpdate, onVideoPause, onVideoEnded }) {
   const [resumeToast, setResumeToast] = useState('');
@@ -46,7 +45,7 @@ export default function Viewer({ viewerState, sourceId, onClose, onStepImage, on
         <VideoPlayer
           key={`${sourceId}:${viewerState.file.path}`}
           src={mediaUrl(sourceId, viewerState.file.path)}
-          type={mimeFor(viewerState.file.name)}
+          type={viewerState.file.mime}
           initialTime={viewerState.initialTime}
           onTimeUpdate={onVideoTimeUpdate}
           onPause={onVideoPause}

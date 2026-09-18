@@ -113,6 +113,15 @@ Use `PORT=8080 npm start` to change the port.
 
 Both the phone and the laptop need to be on the same Wi-Fi network.
 
+### Playing a direct video/image URL
+
+Click **+ Source** → **Direct URL**, give it a name and paste a direct
+link to a video or image file (not a webpage — a link that itself
+serves the file). The server fetches it and streams it to your
+browser, so seeking works the same as with local files, and it gets
+the same watch-history/resume support. Only use links you actually
+have the right to view — the server has no way to check that for you.
+
 ### Continue watching
 
 Every video you watch has its playback position saved automatically
@@ -140,6 +149,11 @@ end) start over from the beginning next time.
 - This app has no authentication — anyone on your local network can
   use it while the server is running. Don't run it on untrusted
   networks (e.g. public Wi-Fi).
+- Direct-URL sources make the server fetch whatever URL it's given
+  and stream the response back — combined with no authentication,
+  that means anyone on your LAN could point it at an internal address
+  reachable from your laptop. Keep that in mind on networks you don't
+  fully trust.
 
 ## Project structure
 
