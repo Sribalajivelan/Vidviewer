@@ -1,128 +1,151 @@
 const express = require('express');
-const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
+const { sources, playback } = require('./lib/db');
+const local = require('./lib/local');
+const ftp = require('./lib/ftp');
+
 const app = express();
+app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
-// Folder that is allowed to be browsed. Defaults to the user's home directory.
-// Override with: MEDIA_ROOT=/some/folder npm start
-const ROOT_DIR = path.resolve(process.env.MEDIA_ROOT || os.homedir());
 
-const VIDEO_EXT = new Set(['.mp4', '.webm', '.ogg', '.ogv', '.mov', '.m4v', '.mkv']);
-const IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg']);
+// First run: seed a default "Local" source so the app is usable out of the box.
+// Override the folder it points at with: MEDIA_ROOT=/some/folder npm start
+if (sources.count() === 0) {
+  sources.createLocal('Local', path.resolve(process.env.MEDIA_ROOT || os.homedir()));
+}
 
-const MIME_TYPES = {
-  '.mp4': 'video/mp4',
-  '.webm': 'video/webm',
-  '.ogg': 'video/ogg',
-  '.ogv': 'video/ogg',
-  '.mov': 'video/quicktime',
-  '.m4v': 'video/x-m4v',
-  '.mkv': 'video/x-matroska',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.png': 'image/png',
-  '.gif': 'image/gif',
-  '.webp': 'image/webp',
-  '.bmp': 'image/bmp',
-  '.svg': 'image/svg+xml',
-};
-
-// Resolve a client-supplied relative path against ROOT_DIR, refusing to
-// leave ROOT_DIR (blocks path traversal such as `../../etc/passwd`).
-function resolveSafePath(relativePath) {
-  const cleaned = (relativePath || '').replace(/^[/\\]+/, '');
-  const resolved = path.resolve(ROOT_DIR, cleaned);
-  const rootWithSep = ROOT_DIR.endsWith(path.sep) ? ROOT_DIR : ROOT_DIR + path.sep;
-  if (resolved !== ROOT_DIR && !resolved.startsWith(rootWithSep)) {
+function getSourceOr404(req, res) {
+  const id = Number(req.query.sourceId ?? req.body?.sourceId);
+  const source = sources.get(id);
+  if (!source) {
+    res.status(404).json({ error: 'Unknown source' });
     return null;
   }
-  return resolved;
+  return source;
 }
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// List folders and media files inside a directory under ROOT_DIR.
+// ---- Sources -------------------------------------------------------------
+
+app.get('/api/sources', (req, res) => {
+  res.json(sources.list());
+});
+
+app.post('/api/sources', async (req, res) => {
+  const body = req.body || {};
+  const name = (body.name || '').trim();
+  if (!name) return res.status(400).json({ error: 'Name is required' });
+
+  if (body.type === 'local') {
+    if (!body.rootPath) return res.status(400).json({ error: 'Folder path is required' });
+    try {
+      const created = sources.createLocal(name, path.resolve(body.rootPath));
+      return res.status(201).json(created);
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
+    }
+  }
+
+  if (body.type === 'ftp') {
+    if (!body.host) return res.status(400).json({ error: 'Host is required' });
+    const candidate = {
+      host: body.host,
+      port: Number(body.port) || 21,
+      username: body.username || '',
+      password: body.password || '',
+      secure: !!body.secure,
+      basePath: body.basePath || '/',
+    };
+    try {
+      await ftp.testConnection(candidate);
+    } catch (err) {
+      return res.status(400).json({ error: 'Could not connect: ' + err.message });
+    }
+    const created = sources.createFtp({ name, ...candidate });
+    return res.status(201).json(created);
+  }
+
+  res.status(400).json({ error: 'type must be "local" or "ftp"' });
+});
+
+app.delete('/api/sources/:id', (req, res) => {
+  sources.remove(Number(req.params.id));
+  res.status(204).end();
+});
+
+// ---- Browsing & streaming -------------------------------------------------
+
 app.get('/api/list', (req, res) => {
-  const requested = req.query.dir || '';
-  const dirPath = resolveSafePath(requested);
-  if (!dirPath) return res.status(400).json({ error: 'Invalid path' });
+  const source = getSourceOr404(req, res);
+  if (!source) return;
+  const dir = req.query.dir || '';
 
-  fs.readdir(dirPath, { withFileTypes: true }, (err, entries) => {
-    if (err) return res.status(404).json({ error: 'Folder not found' });
-
-    const folders = [];
-    const files = [];
-
-    for (const entry of entries) {
-      if (entry.name.startsWith('.')) continue;
-      const entryRelPath = path.join(requested, entry.name);
-
-      if (entry.isDirectory()) {
-        folders.push({ name: entry.name, path: entryRelPath });
-      } else if (entry.isFile()) {
-        const ext = path.extname(entry.name).toLowerCase();
-        if (VIDEO_EXT.has(ext)) {
-          files.push({ name: entry.name, path: entryRelPath, type: 'video' });
-        } else if (IMAGE_EXT.has(ext)) {
-          files.push({ name: entry.name, path: entryRelPath, type: 'image' });
-        }
-      }
-    }
-
-    folders.sort((a, b) => a.name.localeCompare(b.name));
-    files.sort((a, b) => a.name.localeCompare(b.name));
-
-    res.json({
-      dir: requested,
-      parent: requested ? path.dirname(requested) : null,
-      folders,
-      files,
+  if (source.type === 'local') {
+    local.listLocalDir(source, dir, (err, result) => {
+      if (err) return res.status(404).json({ error: 'Folder not found' });
+      res.json({ sourceId: source.id, dir, ...result });
     });
-  });
+  } else {
+    ftp.listFtpDir(source, dir)
+      .then((result) => res.json({ sourceId: source.id, dir, ...result }))
+      .catch((err) => res.status(502).json({ error: 'FTP error: ' + err.message }));
+  }
 });
 
-// Stream a video or image file, with HTTP Range support for video seeking.
 app.get('/media', (req, res) => {
-  const filePath = resolveSafePath(req.query.path);
-  if (!filePath) return res.status(400).send('Invalid path');
+  const source = getSourceOr404(req, res);
+  if (!source) return;
+  const filePath = req.query.path || '';
 
-  fs.stat(filePath, (err, stat) => {
-    if (err || !stat.isFile()) return res.status(404).send('Not found');
-
-    const ext = path.extname(filePath).toLowerCase();
-    const mime = MIME_TYPES[ext] || 'application/octet-stream';
-    const range = req.headers.range;
-
-    if (range) {
-      const [startStr, endStr] = range.replace(/bytes=/, '').split('-');
-      const start = parseInt(startStr, 10) || 0;
-      const end = endStr ? parseInt(endStr, 10) : stat.size - 1;
-
-      if (start >= stat.size || end >= stat.size || start > end) {
-        res.status(416).set('Content-Range', `bytes */${stat.size}`).end();
-        return;
-      }
-
-      res.status(206).set({
-        'Content-Range': `bytes ${start}-${end}/${stat.size}`,
-        'Accept-Ranges': 'bytes',
-        'Content-Length': end - start + 1,
-        'Content-Type': mime,
-      });
-      fs.createReadStream(filePath, { start, end }).pipe(res);
-    } else {
-      res.set({
-        'Content-Length': stat.size,
-        'Content-Type': mime,
-        'Accept-Ranges': 'bytes',
-      });
-      fs.createReadStream(filePath).pipe(res);
-    }
-  });
+  if (source.type === 'local') {
+    local.streamLocalFile(source, filePath, req, res);
+  } else {
+    ftp.streamFtpFile(source, filePath, req, res);
+  }
 });
+
+// ---- Playback progress / recently played ----------------------------------
+
+app.get('/api/progress', (req, res) => {
+  const source = getSourceOr404(req, res);
+  if (!source) return;
+  const filePath = req.query.path || '';
+  const progress = playback.getProgress(source.id, filePath) || { position: 0, duration: null };
+  res.json(progress);
+});
+
+app.post('/api/progress', (req, res) => {
+  const { sourceId, path: filePath, name, position, duration } = req.body || {};
+  const source = sources.get(Number(sourceId));
+  if (!source) return res.status(404).json({ error: 'Unknown source' });
+  if (!filePath || typeof position !== 'number') {
+    return res.status(400).json({ error: 'path and position are required' });
+  }
+  playback.saveProgress({
+    sourceId: source.id,
+    filePath,
+    fileName: name || filePath,
+    position,
+    duration: typeof duration === 'number' ? duration : null,
+  });
+  res.status(204).end();
+});
+
+app.get('/api/recent', (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 20, 100);
+  res.json(playback.listRecent(limit));
+});
+
+app.delete('/api/recent/:id', (req, res) => {
+  playback.remove(Number(req.params.id));
+  res.status(204).end();
+});
+
+// ---------------------------------------------------------------------------
 
 function getLanAddresses() {
   const interfaces = os.networkInterfaces();
@@ -136,7 +159,7 @@ function getLanAddresses() {
 }
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`VidViewer serving folder: ${ROOT_DIR}`);
+  console.log(`VidViewer running`);
   console.log(`  Local:   http://localhost:${PORT}`);
   for (const addr of getLanAddresses()) {
     console.log(`  Network: http://${addr}:${PORT}`);

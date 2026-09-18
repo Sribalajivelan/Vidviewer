@@ -9,25 +9,71 @@
 <body>
   <header class="topbar">
     <h1>VidViewer</h1>
-    <nav id="breadcrumb" class="breadcrumb"></nav>
+    <div id="sourceTabs" class="source-tabs"></div>
+    <button id="addSourceBtn" class="add-source-btn" title="Add a source">+ Source</button>
   </header>
 
+  <nav id="breadcrumb" class="breadcrumb"></nav>
+
   <main>
+    <section id="recentSection" class="recent-section hidden">
+      <h2>Continue Watching</h2>
+      <div id="recentStrip" class="recent-strip"></div>
+    </section>
+
     <section id="browser" class="browser">
       <div id="entries" class="entries"></div>
     </section>
 
     <section id="viewer" class="viewer hidden">
       <button id="closeViewer" class="close-btn" title="Back to browser">&times;</button>
-      <video id="videoPlayer" class="hidden" controls autoplay></video>
+      <video id="videoPlayer" class="hidden" controls></video>
       <div id="imageWrap" class="image-wrap hidden">
         <button id="prevImage" class="nav-btn nav-prev" title="Previous">&#10094;</button>
         <img id="imagePlayer" alt="">
         <button id="nextImage" class="nav-btn nav-next" title="Next">&#10095;</button>
       </div>
+      <div id="resumeToast" class="resume-toast hidden"></div>
       <div id="viewerTitle" class="viewer-title"></div>
     </section>
   </main>
+
+  <div id="addSourceModal" class="modal hidden">
+    <div class="modal-card">
+      <button id="closeModal" class="close-btn modal-close" title="Close">&times;</button>
+      <h2>Add a source</h2>
+
+      <div class="tabs-inline">
+        <button type="button" class="tab-btn active" data-type="local">Folder on this computer</button>
+        <button type="button" class="tab-btn" data-type="ftp">FTP (e.g. phone)</button>
+      </div>
+
+      <form id="localForm" class="source-form">
+        <label>Name<input type="text" name="name" placeholder="My Videos" required></label>
+        <label>Folder path
+          <input type="text" name="rootPath" placeholder="/home/me/Videos or C:\Users\me\Videos" required>
+        </label>
+        <p class="hint">Any folder on the machine running this server.</p>
+        <button type="submit">Add folder</button>
+        <p class="form-error" id="localError"></p>
+      </form>
+
+      <form id="ftpForm" class="source-form hidden">
+        <label>Name<input type="text" name="name" placeholder="My Phone" required></label>
+        <label>Host / IP<input type="text" name="host" placeholder="192.168.1.42" required></label>
+        <div class="row">
+          <label>Port<input type="number" name="port" value="21"></label>
+          <label class="checkbox-label"><input type="checkbox" name="secure"> FTPS</label>
+        </div>
+        <label>Username<input type="text" name="username" placeholder="(blank for anonymous)"></label>
+        <label>Password<input type="password" name="password"></label>
+        <label>Base folder on server<input type="text" name="basePath" value="/"></label>
+        <p class="hint">Start an FTP server app on your phone, then enter the address it shows you here.</p>
+        <button type="submit">Connect &amp; add</button>
+        <p class="form-error" id="ftpError"></p>
+      </form>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>
