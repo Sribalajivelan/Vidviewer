@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import VideoPlayer from './VideoPlayer';
-import { mediaUrl, formatTime } from '../lib/mediaUrl';
+import { mediaUrl, subtitleTrackUrl, formatTime } from '../lib/mediaUrl';
 
 export default function Viewer({ viewerState, sourceId, sourceType, onClose, onStepImage, onVideoTimeUpdate, onVideoPause, onVideoEnded, onConverted }) {
   const [resumeToast, setResumeToast] = useState('');
   const toastTimer = useRef(null);
-  const [convertState, setConvertState] = useState(null); // null | { status: 'offer'|'starting'|'running'|'error', percent?, error?, jobId? }
+  const [convertState, setConvertState] = useState(null); // null | { status: 'offer'|'starting'|'running'|'error', percent?, error?, jobId?, audioTracks?, audioTrackIndex? }
+  const [subtitleTracks, setSubtitleTracks] = useState([]);
 
   useEffect(() => {
     if (!viewerState) return undefined;
@@ -31,6 +32,27 @@ export default function Viewer({ viewerState, sourceId, sourceType, onClose, onS
   useEffect(() => {
     setConvertState(null);
   }, [videoPath]);
+
+  // Subtitle tracks (embedded + sidecar files) are local-source only, same
+  // as in-app conversion - fetched fresh for each video opened.
+  useEffect(() => {
+    setSubtitleTracks([]);
+    if (!videoPath || sourceType !== 'local') return undefined;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/subtitles?sourceId=${sourceId}&path=${encodeURIComponent(videoPath)}`);
+        const list = await res.json();
+        if (!cancelled && Array.isArray(list)) {
+          setSubtitleTracks(list.map((t) => ({ ...t, src: subtitleTrackUrl(sourceId, videoPath, t.id) })));
+        }
+      } catch {
+        // No subtitles available; leave the list empty.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [videoPath, sourceId, sourceType]);
 
   useEffect(() => {
     if (convertState?.status !== 'running' || !convertState.jobId) return undefined;
@@ -58,17 +80,31 @@ export default function Viewer({ viewerState, sourceId, sourceType, onClose, onS
 
   if (!viewerState) return null;
 
-  function handleUnsupported() {
-    if (sourceType === 'local') setConvertState({ status: 'offer' });
+  async function handleUnsupported() {
+    if (sourceType !== 'local') return;
+    setConvertState({ status: 'offer', audioTracks: [], audioTrackIndex: undefined });
+    try {
+      const res = await fetch(`/api/convert/tracks?sourceId=${sourceId}&path=${encodeURIComponent(viewerState.file.path)}`);
+      const audioTracks = await res.json();
+      if (Array.isArray(audioTracks) && audioTracks.length) {
+        const defaultTrack = audioTracks.find((t) => t.default) || audioTracks[0];
+        setConvertState((prev) =>
+          prev?.status === 'offer' ? { ...prev, audioTracks, audioTrackIndex: defaultTrack.index } : prev
+        );
+      }
+    } catch {
+      // Fall back to ffmpeg's default audio-stream selection.
+    }
   }
 
   async function startConvert() {
+    const audioTrackIndex = convertState?.audioTrackIndex;
     setConvertState({ status: 'starting' });
     try {
       const res = await fetch('/api/convert', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sourceId, path: viewerState.file.path }),
+        body: JSON.stringify({ sourceId, path: viewerState.file.path, audioTrackIndex }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -102,6 +138,7 @@ export default function Viewer({ viewerState, sourceId, sourceType, onClose, onS
           src={mediaUrl(sourceId, viewerState.file.path)}
           type={viewerState.file.mime}
           initialTime={viewerState.initialTime}
+          tracks={subtitleTracks}
           onTimeUpdate={onVideoTimeUpdate}
           onPause={onVideoPause}
           onEnded={onVideoEnded}
@@ -115,6 +152,21 @@ export default function Viewer({ viewerState, sourceId, sourceType, onClose, onS
           {convertState.status === 'offer' && (
             <>
               <p>This device can&apos;t play this video&apos;s format.</p>
+              {convertState.audioTracks?.length > 0 && (
+                <select
+                  className="convert-audio-track-select"
+                  value={convertState.audioTrackIndex}
+                  onChange={(e) =>
+                    setConvertState((prev) => ({ ...prev, audioTrackIndex: Number(e.target.value) }))
+                  }
+                >
+                  {convertState.audioTracks.map((t) => (
+                    <option key={t.index} value={t.index}>
+                      Audio: {t.label}
+                    </option>
+                  ))}
+                </select>
+              )}
               <button className="add-source-btn" onClick={startConvert}>Convert to MP4</button>
             </>
           )}

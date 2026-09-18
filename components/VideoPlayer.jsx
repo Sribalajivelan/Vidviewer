@@ -42,7 +42,7 @@ function sizeToViewport(player) {
   player.height(Math.round(vh * scale));
 }
 
-export default function VideoPlayer({ src, type, initialTime, onTimeUpdate, onPause, onEnded, onResumed, onUnsupported }) {
+export default function VideoPlayer({ src, type, initialTime, tracks, onTimeUpdate, onPause, onEnded, onResumed, onUnsupported }) {
   const containerRef = useRef(null);
   const playerRef = useRef(null);
   const callbacksRef = useRef({});
@@ -95,6 +95,21 @@ export default function VideoPlayer({ src, type, initialTime, onTimeUpdate, onPa
     // remounts this component (via `key`) for a different file/source.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src, type]);
+
+  // Subtitle tracks are fetched by the parent after the player mounts (a
+  // separate request), so they're added as remote text tracks once they
+  // arrive rather than passed in at videojs() creation time. This also
+  // un-hides video.js's built-in CC/subtitles control automatically.
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player || player.isDisposed() || !tracks?.length) return;
+    for (const track of tracks) {
+      player.addRemoteTextTrack(
+        { kind: 'subtitles', label: track.label, srclang: track.srclang || '', src: track.src, default: track.default },
+        false
+      );
+    }
+  }, [tracks]);
 
   return (
     <div className="video-player-wrap" data-vjs-player>

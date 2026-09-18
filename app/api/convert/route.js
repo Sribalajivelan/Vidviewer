@@ -22,8 +22,10 @@ export async function POST(request) {
     return Response.json({ error: 'Already an MP4' }, { status: 400 });
   }
 
+  const audioTrackIndex = Number.isInteger(body.audioTrackIndex) ? body.audioTrackIndex : undefined;
+
   try {
-    const jobId = await startConversion(source, relPath);
+    const jobId = await startConversion(source, relPath, audioTrackIndex);
     return Response.json({ jobId }, { status: 201 });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 400 });
