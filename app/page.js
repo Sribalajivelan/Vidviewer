@@ -207,7 +207,7 @@ export default function Page() {
   function openRecent(row) {
     setCurrentSourceId(row.sourceId);
     window.localStorage.setItem(LAST_SOURCE_KEY, row.sourceId);
-    openVideo({ name: row.name, path: row.path });
+    openVideo({ name: row.name, path: row.path, mime: row.mime });
   }
 
   return (
