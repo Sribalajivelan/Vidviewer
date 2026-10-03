@@ -77,6 +77,52 @@ export default function VideoPlayer({ src, type, initialTime, tracks, onTimeUpda
     const handleResize = () => sizeToViewport(player);
     window.addEventListener('resize', handleResize);
 
+    // video.js's own hotkeys only work while the player element has focus,
+    // which it rarely does here, so shortcuts are handled at the document
+    // level instead. Handled keys are also swallowed on keyup so a focused
+    // control-bar button doesn't additionally "click" itself on Space.
+    const SHORTCUT_KEYS = new Set([' ', 'k', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'm', 'f']);
+    const handleKeyDown = (e) => {
+      if (e.ctrlKey || e.altKey || e.metaKey || !SHORTCUT_KEYS.has(e.key)) return;
+      const target = e.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      switch (e.key) {
+        case ' ':
+        case 'k':
+          if (player.paused()) player.play(); else player.pause();
+          break;
+        case 'ArrowLeft':
+          player.currentTime(Math.max(0, player.currentTime() - 10));
+          break;
+        case 'ArrowRight':
+          player.currentTime(Math.min(player.duration() || Infinity, player.currentTime() + 10));
+          break;
+        case 'ArrowUp':
+          player.muted(false);
+          player.volume(Math.min(1, player.volume() + 0.1));
+          break;
+        case 'ArrowDown':
+          player.volume(Math.max(0, player.volume() - 0.1));
+          break;
+        case 'm':
+          player.muted(!player.muted());
+          break;
+        case 'f':
+          if (player.isFullscreen()) player.exitFullscreen(); else player.requestFullscreen();
+          break;
+      }
+    };
+    const handleKeyUp = (e) => {
+      if (e.key === ' ' && !(e.target instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))) e.preventDefault();
+    };
+    // Capture phase: video.js's focused buttons/sliders stop keydown from
+    // bubbling, and would otherwise either swallow the key or double-handle it.
+    document.addEventListener('keydown', handleKeyDown, true);
+    document.addEventListener('keyup', handleKeyUp, true);
+
     player.on('timeupdate', () => callbacksRef.current.onTimeUpdate?.(player.currentTime(), player.duration()));
     player.on('pause', () => callbacksRef.current.onPause?.(player.currentTime(), player.duration()));
     player.on('ended', () => callbacksRef.current.onEnded?.(player.duration(), player.duration()));
@@ -88,6 +134,8 @@ export default function VideoPlayer({ src, type, initialTime, tracks, onTimeUpda
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      document.removeEventListener('keydown', handleKeyDown, true);
+      document.removeEventListener('keyup', handleKeyUp, true);
       if (!player.isDisposed()) player.dispose();
       playerRef.current = null;
     };
