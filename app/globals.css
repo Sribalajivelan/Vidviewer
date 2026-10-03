@@ -331,6 +331,20 @@ main { padding: 1rem 1.5rem 3rem; }
   background: #000;
 }
 
+.video-js .vjs-boost-control {
+  width: auto;
+  min-width: 3.2em;
+  padding: 0 0.4em;
+}
+
+.video-js .vjs-boost-label {
+  font-size: 1.1em;
+  font-weight: 600;
+  line-height: 2.7em;
+}
+
+.video-js .vjs-boost-control.vjs-boost-active .vjs-boost-label { color: var(--accent); }
+
 .image-wrap {
   position: relative;
   display: flex;

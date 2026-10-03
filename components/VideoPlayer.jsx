@@ -26,6 +26,39 @@ if (!videojs.getComponent('RestartButton')) {
   videojs.registerComponent('RestartButton', RestartButton);
 }
 
+// Volume above 100%: the media element's own volume caps at 1.0, so extra
+// loudness has to come from a Web Audio gain stage. This button only shows
+// and requests the level; the audio graph lives in VideoPlayer's effect.
+const BOOST_LEVELS = [1, 1.5, 2];
+const BOOST_STORAGE_KEY = 'vidviewer:volumeBoost';
+
+if (!videojs.getComponent('BoostButton')) {
+  const ButtonBase = videojs.getComponent('Button');
+
+  class BoostButton extends ButtonBase {
+    constructor(player, options) {
+      super(player, options);
+      this.addClass('vjs-boost-control');
+      this.label = document.createElement('span');
+      this.label.className = 'vjs-boost-label';
+      this.el().appendChild(this.label);
+      this.setLevel(1);
+    }
+
+    setLevel(level) {
+      this.label.textContent = `${level}x`;
+      this.controlText(`Volume boost ${level}x (click to change)`);
+      this.toggleClass('vjs-boost-active', level > 1);
+    }
+
+    handleClick() {
+      this.player().trigger('boostcycle');
+    }
+  }
+
+  videojs.registerComponent('BoostButton', BoostButton);
+}
+
 // Sizes the player to fit the viewport while preserving the video's own
 // aspect ratio (video.js's default, non-fluid skin needs an explicit size
 // because its tech element is absolutely positioned inside it).
@@ -64,7 +97,67 @@ export default function VideoPlayer({ src, type, initialTime, tracks, onTimeUpda
     });
     playerRef.current = player;
 
-    player.getChild('controlBar').addChild('RestartButton', {}, 0);
+    const controlBar = player.getChild('controlBar');
+    controlBar.addChild('RestartButton', {}, 0);
+    const volumeIndex = controlBar.children().findIndex((c) => c.name() === 'VolumePanel');
+    const boostButton = controlBar.addChild('BoostButton', {}, volumeIndex + 1);
+
+    // The Web Audio graph is only built once a boost above 1x is actually
+    // requested: routing an element through it makes it silent whenever the
+    // AudioContext is suspended, so untouched videos keep plain playback.
+    let audioCtx = null;
+    let gainNode = null;
+    let boostLevel = 1;
+
+    const setBoost = (level) => {
+      if (level > 1 && !audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        const mediaEl = player.el().querySelector('video');
+        if (!AudioContextClass || !mediaEl) return;
+        audioCtx = new AudioContextClass();
+        gainNode = audioCtx.createGain();
+        // Gain past 1x would clip hard on loud passages; a limiter keeps
+        // peaks from turning into harsh distortion. The 0 dB threshold is
+        // deliberate: any lower and the compressor's automatic makeup gain
+        // makes the output louder than the displayed boost level.
+        const limiter = audioCtx.createDynamicsCompressor();
+        limiter.threshold.value = 0;
+        limiter.knee.value = 0;
+        limiter.ratio.value = 20;
+        limiter.attack.value = 0.003;
+        limiter.release.value = 0.1;
+        audioCtx.createMediaElementSource(mediaEl).connect(gainNode);
+        gainNode.connect(limiter);
+        limiter.connect(audioCtx.destination);
+      }
+      if (gainNode) {
+        gainNode.gain.value = level;
+        audioCtx.resume?.();
+      }
+      boostLevel = level;
+      boostButton.setLevel(level);
+      try {
+        window.localStorage.setItem(BOOST_STORAGE_KEY, String(level));
+      } catch {
+        // Storage unavailable; the boost just won't be remembered.
+      }
+    };
+
+    const cycleBoost = () => {
+      const next = BOOST_LEVELS[(BOOST_LEVELS.indexOf(boostLevel) + 1) % BOOST_LEVELS.length];
+      setBoost(next);
+    };
+    player.on('boostcycle', cycleBoost);
+    player.on('play', () => audioCtx?.state === 'suspended' && audioCtx.resume());
+
+    player.ready(() => {
+      try {
+        const saved = Number(window.localStorage.getItem(BOOST_STORAGE_KEY));
+        if (BOOST_LEVELS.includes(saved) && saved > 1) setBoost(saved);
+      } catch {
+        // Storage unavailable; start at 1x.
+      }
+    });
 
     player.on('loadedmetadata', () => {
       sizeToViewport(player);
@@ -81,7 +174,7 @@ export default function VideoPlayer({ src, type, initialTime, tracks, onTimeUpda
     // which it rarely does here, so shortcuts are handled at the document
     // level instead. Handled keys are also swallowed on keyup so a focused
     // control-bar button doesn't additionally "click" itself on Space.
-    const SHORTCUT_KEYS = new Set([' ', 'k', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'm', 'f']);
+    const SHORTCUT_KEYS = new Set([' ', 'k', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'm', 'f', 'b']);
     const handleKeyDown = (e) => {
       if (e.ctrlKey || e.altKey || e.metaKey || !SHORTCUT_KEYS.has(e.key)) return;
       const target = e.target;
@@ -113,6 +206,9 @@ export default function VideoPlayer({ src, type, initialTime, tracks, onTimeUpda
         case 'f':
           if (player.isFullscreen()) player.exitFullscreen(); else player.requestFullscreen();
           break;
+        case 'b':
+          cycleBoost();
+          break;
       }
     };
     const handleKeyUp = (e) => {
@@ -136,6 +232,7 @@ export default function VideoPlayer({ src, type, initialTime, tracks, onTimeUpda
       window.removeEventListener('resize', handleResize);
       document.removeEventListener('keydown', handleKeyDown, true);
       document.removeEventListener('keyup', handleKeyUp, true);
+      audioCtx?.close();
       if (!player.isDisposed()) player.dispose();
       playerRef.current = null;
     };
