@@ -111,7 +111,13 @@ in place via a bundled `ffmpeg-static`/`ffprobe-static` (no system ffmpeg
 install required). `POST /api/convert` starts a background ffmpeg job
 re-encoding to H.264/AAC MP4 next to the original file (same name, `.mp4`
 extension; a no-op if that file already exists); `GET
-/api/convert/[jobId]` is polled for progress. Two non-obvious things here:
+/api/convert/[jobId]` is polled for progress. Encoding prefers a GPU encoder
+(`h264_nvenc` → `h264_qsv` → `h264_amf`, first one that passes a tiny test
+encode, detected once per server process) and retries with CPU `libx264` if
+none work or a GPU encode fails mid-file (~2x faster with Quick Sync on the
+dev laptop). Only `h264_qsv` has been tested on real hardware; the NVENC/AMF
+argument sets are untested and rely on the fallback if wrong. Two non-obvious
+things here:
 - Conversion jobs live in an in-memory `Map`, but it's anchored on
   `globalThis` rather than plain module scope — Next.js dev mode compiles
   `/api/convert` and `/api/convert/[jobId]` as separate module graphs, so a
